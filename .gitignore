@@ -1,0 +1,21 @@
+# IntelliJ project files
+.idea
+*.iml
+out
+gen
+.facts-cache
+
+.vscode
+debug.yml
+.vault_pass
+
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate*
+.terraform.tfstate.lock.info
+
+tmp/
+ansible.cfg
+inventory.yml
+requirements.yml
+group_vars

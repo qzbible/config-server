@@ -1,0 +1,58 @@
+---
+- name: Update and upgrade apt packages
+  ansible.builtin.apt:
+    upgrade: yes
+    update_cache: yes
+    cache_valid_time: 2592000 # 30 jours
+  tags:
+    - packages
+  register: apt_update_upgrade
+
+- name: Show apt outputs
+  debug:
+    msg: "{{ apt_update_upgrade.stdout_lines }}"
+  tags:
+    - packages
+  when: apt_update_upgrade.changed
+
+- name: Download yq binary
+  ansible.builtin.get_url:
+    url: "https://github.com/mikefarah/yq/releases/download/v4.43.1/yq_linux_amd64"
+    dest: "/usr/bin/yq"
+    mode: "0755"
+  tags:
+    - packages
+
+- name: Install some packages and dependencies
+  ansible.builtin.apt:
+    name: "{{ packages }}"
+    state: present
+  tags:
+    - packages
+
+- name: Configuration des locales
+  ansible.builtin.import_tasks: locale.yml
+  tags:
+    - locale
+
+- name: Activation de ntp au démarrage
+  ansible.builtin.service:
+    name: ntp
+    enabled: true
+
+- name: Lancement de ntp
+  ansible.builtin.service:
+    name: ntp
+    state: started
+
+- name: Set the hostname from the inventory_hostname
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname | replace('_', '-') }}"
+
+# Set vm.max_map_count to 262144.
+# Some tools like ES requires it: https://www.elastic.co/guide/en/elasticsearch/reference/current/vm-max-map-count.html
+- ansible.posix.sysctl:
+    name: vm.max_map_count
+    value: '262144'
+    state: present
+    reload: true

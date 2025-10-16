@@ -1,0 +1,120 @@
+---
+- name: Install postgresql
+  hosts: ovh_manager
+  become: true
+  pre_tasks:
+    - name: PostgreSQL repo
+      tags:
+        - postgresql
+      block:
+        - name: Check if signing key is present
+          ansible.builtin.stat:
+            path: /etc/apt/trusted.gpg.d/pgdg.asc
+          register: postgresql_st_pgdg
+
+        - name: Import and Write gpg key to pgdg.asc
+          ansible.builtin.get_url:
+            url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+            dest: /etc/apt/trusted.gpg.d/pgdg.asc
+            mode: "0644"
+          when: not postgresql_st_pgdg.stat.exists
+
+        - name: Add postgresql repository into sources list
+          ansible.builtin.apt_repository:
+            repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+            state: present
+
+        - name: Update cache
+          ansible.builtin.apt:
+            update_cache: true
+
+  post_tasks:
+    - name: Install pgcli
+      tags:
+        - pgcli
+      block:
+        - name: Install pgcli
+          become_user: "postgres"
+          become: true
+          community.general.pipx:
+            name: pgcli # https://github.com/dbcli/pgcli
+            state: present
+
+        - name: Add pgcli to the path
+          ansible.builtin.lineinfile:
+            path: /var/lib/postgresql/.bashrc
+            line: "export PATH=$PATH:$HOME/.local/bin"
+            create: true
+            group: postgres
+            owner: postgres
+            mode: "0764"
+
+    - name: Allow port postgresql
+      community.general.ufw:
+        rule: allow
+        port: 5432
+        proto: tcp
+        delete: "{{ item.delete | default(false) }}"
+        direction: in
+        interface: "{{ item.interface | default('') }}"
+        from_ip: "{{ item.from_ip | default('any') }}"
+        comment: "{{ item.comment }}"
+      loop:
+        - from_ip: "{{ ansible_docker0.ipv4.address }}/{{ ansible_docker0.ipv4.prefix }}"
+          interface: docker0
+          comment: "allow postgreSQL connection from Docker"
+        - from_ip: "{{ ansible_docker_gwbridge.ipv4.address }}/{{ ansible_docker_gwbridge.ipv4.prefix }}"
+          comment: "allow postgreSQL connection from docker_gwbridge"
+          interface: docker_gwbridge
+      tags:
+        - ufw
+
+  roles:
+    - role: "galaxyproject.postgresql"
+      postgresql_version: "15"
+      postgresql_pg_hba_conf: # https://www.postgresql.org/docs/current/auth-pg-hba-conf.html
+        - ""
+        - "# Allows the postgres user to access any databases via TCP/IP"
+        - "host   all   postgres   0.0.0.0/0   scram-sha-256"
+        - ""
+        - "# Allows connecting to the DB which has the same name as the user"
+        - "host   samerole   all   0.0.0.0/0   scram-sha-256" # Outside connection are restricted by the firewall
+      postgresql_conf: # NOTE: if you change this, you have to restart postgres
+        - listen_addresses: "'*'" # Listen on all interfaces. # Outside connection are restricted by the firewall
+      tags:
+        - postgresql
+
+- name: Install Pgadmin
+  hosts: ovh_manager
+  vars_files:
+    - ./vars/internal-tools.yml
+  pre_tasks:
+    - name: Ensure secret for pgadmin default user is present
+      community.docker.docker_secret:
+        name: "{{ pgadmin_default_admin_password_swarm_secret_name }}"
+        data: "{{ pgadmin_default_admin_password }}"
+        state: present
+      tags:
+        - pgadmin
+
+  roles:
+    - role: deploy-swarm-stack
+      deploy_swarm_stack_name: pgadmin
+      deploy_swarm_stack_template_name: pgadmin.yml
+      deploy_swarm_stack_dest_folder: "{{ internal_apps_folder }}"
+      tags:
+        - pgadmin
+
+  tasks:
+    - name: Check if we can access the service
+      ansible.builtin.uri:
+        url: http://{{ pgadmin_domain }}
+        follow_redirects: safe
+        return_content: true
+      register: this
+      failed_when: "'pgAdmin' not in this.content or this.status != 200 or 'https://' not in this.url"
+      retries: 5
+      delay: 10
+      until: this.status == 200
+      tags:
+        - pgadmin

@@ -1,0 +1,40 @@
+---
+- name: Deploy traefik
+  hosts: ovh_manager
+  vars_files:
+    - ./vars/internal-tools.yml
+  become: true
+
+  pre_tasks:
+    - name: Create the network for traefik
+      community.docker.docker_network:
+        driver: overlay
+        scope: swarm
+        name: "{{ traefik_network }}"
+        state: present
+        attachable: true
+        driver_options:
+          encrypted: true
+
+  roles:
+    - role: deploy-swarm-stack
+      deploy_swarm_stack_name: traefik
+      deploy_swarm_stack_template_name: traefik.yml
+      deploy_swarm_stack_dest_folder: "{{ internal_apps_folder }}"
+      tags:
+        - traefik
+
+  tasks:
+    - name: Check if we can access the service
+      ansible.builtin.uri:
+        url: http://{{ traefik_domain }}
+        follow_redirects: safe
+        force_basic_auth: true
+        user: "{{ traefik_basic_auth_user }}"
+        password: "{{ traefik_basic_auth_password }}"
+        return_content: true
+      register: this
+      failed_when: "'Traefik' not in this.content or this.status != 200 or 'https://' not in this.url"
+      retries: 5
+      delay: 10
+      until: this.status == 200

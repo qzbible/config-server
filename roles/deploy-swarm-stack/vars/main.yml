@@ -1,0 +1,2 @@
+---
+final_dest_folder: "{{ deploy_swarm_stack_dest_folder }}/{{ deploy_swarm_stack_name }}"

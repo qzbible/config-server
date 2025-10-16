@@ -1,0 +1,10 @@
+---
+internal_apps_folder: "{{ apps_folder }}/internal"
+ansible_python_interpreter: /usr/local/bin/python3-docker # For docker swarm commands
+
+traefik_basic_auth_user: dbn-traefik
+traefik_basic_auth_password: "{{ vault_traefik_basic_auth_password }}"
+
+pgadmin_default_admin_email: samyfabiol@gmail.com
+pgadmin_default_admin_password: "{{ vault_pgadmin_default_password }}"
+pgadmin_default_admin_password_swarm_secret_name: pdgadmin-default-password

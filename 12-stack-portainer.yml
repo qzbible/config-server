@@ -1,0 +1,26 @@
+---
+- name: Deploy portainer
+  hosts: ovh_manager
+  vars_files:
+    - ./vars/internal-tools.yml
+  become: true
+
+  roles:
+    - role: deploy-swarm-stack
+      deploy_swarm_stack_name: portainer
+      deploy_swarm_stack_template_name: portainer.yml
+      deploy_swarm_stack_dest_folder: "{{ internal_apps_folder }}"
+      tags:
+        - portainer
+
+  tasks:
+    - name: Check if we can access the service
+      ansible.builtin.uri:
+        url: http://{{ portainer_domain }}
+        follow_redirects: safe
+        return_content: true
+      register: this
+      failed_when: "'Portainer' not in this.content or this.status != 200 or 'https://' not in this.url"
+      retries: 5
+      delay: 10
+      until: this.status == 200

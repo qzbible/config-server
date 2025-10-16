@@ -1,0 +1,46 @@
+name: Run a playbook 2
+
+on:
+  workflow_dispatch:
+    inputs:
+      playbook-file:
+        description: Name of the playbook to run
+        required: true
+        default: 01-base.yml
+        type: choice
+        options:
+          - 01-base.yml
+          - 10-docker.yml
+          - 11-stack-reverse-proxy.yml
+          - 12-stack-portainer.yml
+          - 13-postgresql.yml
+
+      target:
+        description: The target host to run the playbook against. Should be a host in the inventory file
+        required: true
+        type: choice
+        default: ovh_manager
+        options:
+          - all 
+          - ovh_manager
+      
+      tags:
+        description: "Ansible tags used to filter tasks. Example: -t ufw"
+        type: string
+        default: ""
+        required: false
+
+jobs:
+  run-playbook:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup ansible
+        uses: ./.github/actions/setup-ansible
+        with:
+          ssh_private_key: ${{ secrets.OVH_MANAGER_SSH_PRIVATE_KEY }}
+          ansible_vault_pass: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+
+      - name: Running the playbook
+        run: ansible-playbook ${{ inputs.tags }} -l ${{ inputs.target }} ${{ inputs.playbook-file }}

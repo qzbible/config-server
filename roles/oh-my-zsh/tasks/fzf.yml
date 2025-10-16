@@ -1,0 +1,19 @@
+---
+- name: Cloning fzf
+  become_user: "{{ item.name }}"
+  become: true
+  ansible.builtin.git:
+    repo: https://github.com/junegunn/fzf.git
+    dest: "{{ item.home }}/.fzf"
+    version: master
+    depth: 1
+  with_items: "{{ users }}"
+
+- name: Install fzf
+  become_user: "{{ item.name }}"
+  become: true
+  ansible.builtin.command: "{{ item.home }}/.fzf/install --all"
+  with_items: "{{ users }}"
+  changed_when: false
+  register: fzf_install
+  failed_when: fzf_install.rc != 0

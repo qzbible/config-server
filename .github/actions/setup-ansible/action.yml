@@ -1,0 +1,38 @@
+name: Setup ansible
+description: Setup ansible
+
+inputs:
+  ssh_private_key:
+    description: SSH private key to access the OVH manager server
+    required: true
+  ansible_vault_pass:
+    description: Ansible vault password
+    required: true
+  working_directory:
+    description: The working directory into which push the configuration files
+    required: false
+    default: "."
+
+runs:
+  using: composite
+  steps:
+    - name: Cache Ansible plugins/roles
+      uses: actions/cache@v4
+      with:
+        path: ~/.ansible/
+        key: ansible-plugins-${{ hashFiles('**/requirements.yml') }}
+        save-always: true
+
+    - name: Setup Ansible and ssh
+      shell: bash
+      run: |
+        echo "Setting up Ansible"
+        set -x
+        ansible --version
+        cp -a ${GITHUB_ACTION_PATH}/config/* ${{ inputs.working_directory }}  
+        ansible-galaxy install -v -r ${{ inputs.working_directory }}/requirements.yml
+
+        mkdir -p ~/.ssh/
+        echo "${{ inputs.ssh_private_key }}" > ~/.ssh/id_rsa
+        echo "${{ inputs.ansible_vault_pass }}" > "${{ inputs.working_directory }}/.vault_pass"
+        chmod 700 ~/.ssh/id_rsa

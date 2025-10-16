@@ -1,0 +1,73 @@
+---
+- name: Setup security packages v2
+  hosts: all
+  become: true
+  roles:
+    - role: geerlingguy.security # https://github.com/geerlingguy/ansible-role-security
+      security_fail2ban_enabled: false # Managed by the role below
+      security_ssh_port: "{{ ansible_port }}"
+      security_ssh_password_authentication: "no"
+      security_ssh_permit_root_login: "no"
+      security_ssh_usedns: "no"
+      security_ssh_permit_empty_password: "no"
+      security_ssh_challenge_response_auth: "no"
+      security_ssh_gss_api_authentication: "no"
+      security_ssh_x11_forwarding: "no"
+
+    - role: fail2ban # https://github.com/Oefenweb/ansible-fail2ban
+      fail2ban_bantime: 86400 # 24h
+      fail2ban_maxretry: 4
+      fail2ban_dbpurgeage: 172800 # 2j
+      fail2ban_findtime: 300 # 5mn
+      fail2ban_backend: systemd
+      fail2ban_ignoreips:
+        - 127.0.0.1/8 # localhost related
+      fail2ban_services:
+        - name: sshd
+          enabled: true
+          port: "{{ ansible_port }}"
+          maxretry: 3
+          bantime: 7200 # 2h
+
+    - role: firewall-ufw # Copie de https://github.com/Oefenweb/ansible-ufw avec le support de delete
+      ufw_rules:
+        - rule: allow
+          to_port: "{{ ansible_port }}"
+          protocol: tcp
+          delete: false
+          comment: "allow incoming connection on custom ssh port"
+        - rule: allow
+          to_port: "80"
+          protocol: tcp
+          delete: false
+          comment: "allow http connection"
+        - rule: allow
+          to_port: "443"
+          protocol: tcp
+          delete: false
+          comment: "allow https connection"
+      tags:
+        - firewall
+        - ufw
+
+    - role: common
+      tags:
+        - common
+
+    - role: oh-my-zsh
+      users:
+        - name: "{{ ansible_user }}"
+          home: "/home/{{ ansible_user }}"
+        - name: root
+          home: /root
+      tags:
+        - oh-my-zsh
+
+  tasks:
+    - name: Make sure the service is really running
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: started
+      with_items:
+        - fail2ban
+        - ufw

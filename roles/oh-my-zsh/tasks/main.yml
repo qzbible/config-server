@@ -1,0 +1,46 @@
+---
+- name: Install ZSH
+  ansible.builtin.apt:
+    name: zsh
+    state: present
+
+- name: Cloning oh-my-zsh
+  become_user: "{{ item.name }}"
+  become: true
+  ansible.builtin.git:
+    repo: https://github.com/robbyrussell/oh-my-zsh.git
+    dest: "{{ item.home }}/.oh-my-zsh"
+    version: master
+  with_items: "{{ users }}"
+
+- name: Copie du fichier .zshrc à partir du template
+  ansible.builtin.template:
+    src: zshrc.zsh-template.j2
+    dest: "{{ item.home }}/.zshrc"
+    mode: "0644"
+    group: "{{ item.name }}"
+    owner: "{{ item.name }}"
+  with_items: "{{ users }}"
+
+- name: Récuperation du chemin de zsh
+  ansible.builtin.command: which zsh
+  changed_when: false
+  register: zsh_path
+
+- name: Changement du shell des utilisateurs
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    shell: "{{ zsh_path.stdout }}"
+  with_items: "{{ users }}"
+
+- name: Installation de zsh-syntax-highlighting
+  ansible.builtin.git:
+    repo: https://github.com/zsh-users/zsh-syntax-highlighting.git
+    dest: "{{ item.home }}/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
+    version: master
+  with_items: "{{ users }}"
+
+- name: Installation de fzf
+  import_tasks: fzf.yml
+  tags:
+    - fzf

@@ -1,0 +1,50 @@
+---
+- name: Check required variables
+  ansible.builtin.assert:
+    that:
+      - deploy_swarm_stack_name is defined and deploy_swarm_stack_name | length > 0
+      - deploy_swarm_stack_template_name is defined and deploy_swarm_stack_template_name | length > 0
+      - deploy_swarm_stack_dest_folder is defined and deploy_swarm_stack_dest_folder | length > 0
+    fail_msg: You must define the required variable
+
+- name: Make sure the destination_folder exists
+  ansible.builtin.file:
+    path: "{{ final_dest_folder }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0764"
+    recurse: true
+
+- name: Copy the docker stack file
+  ansible.builtin.template:
+    src: "{{ deploy_swarm_stack_template_name }}"
+    dest: "{{ final_dest_folder }}/stack.yml"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0764"
+
+- name: Deploy the stack
+  community.docker.docker_stack:
+    name: "{{ deploy_swarm_stack_name }}"
+    compose:
+      - "{{ final_dest_folder }}/stack.yml"
+    prune: true
+    state: present
+    resolve_image: always
+  register: stack_deploy
+
+- name: Stack deploy output
+  debug:
+    msg: "{{ stack_deploy.stdout_lines }}"
+
+
+- name: Wait for the deployment to finish
+  ansible.builtin.command:
+    cmd: docker-stack-wait -t 20 {{ deploy_swarm_stack_name }}
+    chdir: "{{ final_dest_folder }}"
+  register: wait_for_deploy
+  ignore_errors: true
+  changed_when: false
+  retries: 6
+  delay: 2
