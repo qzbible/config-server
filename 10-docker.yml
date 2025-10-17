@@ -13,12 +13,12 @@
         - "{{ ansible_user }}" # ssh user
   tasks:
     - name: Log into github private registry
-      become_user: "{{ item }}"
-      become: yes
       community.docker.docker_login:
         registry_url: ghcr.io
-        GitKli22: "{{ vault_github_package_user }}"
+        username: "{{ vault_github_package_user }}"
         password: "{{ vault_github_package_password }}"
+      become: yes
+      become_user: "{{ item }}"
       loop:
         - "{{ ansible_user_id }}" # Root
         - "{{ ansible_user }}" # ssh user
@@ -48,10 +48,10 @@
       tags:
         - swarm
       block:
-        - name: Init Swarm cluster address {{ ansible_default_ipv4.interface }}
+        - name: Init Swarm cluster address {{ ansible_default_ipv4.address }}
           community.docker.docker_swarm:
             state: present
-            advertise_addr: "{{ ansible_default_ipv4.interface }}"
+            advertise_addr: "{{ ansible_default_ipv4.address }}"
             task_history_retention_limit: 5
           register: init_swarm_result
 
@@ -59,16 +59,15 @@
           debug:
             msg: "{{ init_swarm_result }}"
 
+        - name: Install packaging in the Docker Python environment
+          ansible.builtin.pip:
+            name: packaging
+            executable: "/usr/local/lib/docker/virtualenv/bin/pip"
+
         - name: Install docker_stack module requirements
           ansible.builtin.pip:
             name: "{{ item }}"
+            executable: "/usr/local/lib/docker/virtualenv/bin/pip"
           loop:
             - jsondiff
             - pyyaml
-
-
-# For multi hosts swarm: https://docs.docker.com/engine/swarm/swarm-tutorial/#open-protocols-and-ports-between-the-hosts
-# sudo ufw allow in from 192.168.252.0/22 to any port 2377 proto tcp comment 'Swarm: TCP for communication with and between manager nodes'
-# sudo ufw allow in from 192.168.252.0/22 to any port 7946 proto tcp comment 'Swarm: for overlay network node discovery tcp'
-# sudo ufw allow in from 192.168.252.0/22 to any port 7946 proto udp comment 'Swarm: for overlay network node discovery udp'
-# sudo ufw allow in from 192.168.252.0/22 to any port 4789 proto udp comment 'Swarm: for overlay network traffic'

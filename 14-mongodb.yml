@@ -1,0 +1,78 @@
+---
+- name: Install MongoDB
+  hosts: mongodb_server
+  become: true
+  
+  vars:
+    mongodb_version: "6.0"
+    mongodb_dns: "mongo.example.com"
+
+  pre_tasks:
+    - name: Import MongoDB public GPG Key
+      ansible.builtin.apt_key:
+        url: https://www.mongodb.org/static/pgp/server-{{ mongodb_version }}.asc
+        state: present
+
+    - name: Add MongoDB repository
+      ansible.builtin.apt_repository:
+        repo: deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu {{ ansible_distribution_release }}/mongodb-org/{{ mongodb_version }} multiverse
+        state: present
+        filename: mongodb-org-{{ mongodb_version }}
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+
+  tasks:
+    - name: Install MongoDB package
+      ansible.builtin.apt:
+        name: mongodb-org
+        state: present
+
+    - name: Ensure MongoDB is started and enabled at boot
+      ansible.builtin.systemd:
+        name: mongod
+        state: started
+        enabled: yes
+        
+    - name: Ensure MongoDB is listening on all interfaces
+      ansible.builtin.lineinfile:
+        path: /etc/mongod.conf
+        regexp: '^  bindIp:'  
+        line: '  bindIp: 0.0.0.0'
+      notify: Restart mongod
+
+    - name: Open MongoDB port in firewall
+      community.general.ufw:
+        rule: allow
+        port: 27017
+        proto: tcp
+        
+    - name: Install MongoDB Shell
+      ansible.builtin.apt:
+        deb: https://downloads.mongodb.com/compass/mongodb-mongosh_1.6.2_amd64.deb
+
+    - name: Install MongoDB CLI Database Tools  
+      ansible.builtin.apt:
+        deb: https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-x86_64-100.6.1.deb
+        
+  handlers:
+    - name: Restart mongod
+      ansible.builtin.systemd:
+        name: mongod
+        state: restarted
+        
+- name: Configure MongoDB DNS  
+  hosts: localhost
+  vars:
+    mongodb_dns: "mongo.example.com"
+    
+  tasks:
+    - name: Ensure MongoDB DNS record 
+      community.aws.route53:
+        state: present
+        zone: example.com
+        record: "{{ mongodb_dns }}"
+        type: CNAME
+        value: "{{ hostvars[groups['mongodb_server'][0]]['ansible_host'] }}"
+        overwrite: yes
