@@ -1,0 +1,4 @@
+---
+apps_folder: /apps
+traefik_network: traefik-public
+

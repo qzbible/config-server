@@ -1,0 +1,14 @@
+ungrouped:
+  hosts:
+
+    ovh_manager:
+        ansible_host: 193.70.40.112
+        ansible_user: ubuntu
+        ansible_port: 2225
+        ansible_ssh_private_key_file: ~/.ssh/id_rsa
+        ansible_python_interpreter: /usr/bin/python3
+        traefik_domain: reverse-proxy.qzbible.com
+        portainer_domain: docker.qzbible.com
+        pgadmin_domain: db-admin.qzbible.com
+        mongo_express_domain : mongodb-express.qzbible.com
+ 

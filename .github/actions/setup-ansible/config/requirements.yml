@@ -1,0 +1,19 @@
+---
+roles:
+  - src: https://github.com/Oefenweb/ansible-fail2ban
+    name: fail2ban
+    version: v4.0.8
+
+  - src: geerlingguy.security # https://github.com/geerlingguy/ansible-role-security
+    version: 2.3.0
+
+  - src: galaxyproject.postgresql # https://github.com/galaxyproject/ansible-postgresql
+    version: 1.1.3
+
+  - src: nickjj.docker # https://github.com/nickjj/ansible-docker
+    version: v2.4.0
+
+collections:
+  - name: community.general
+  - name: community.docker
+  - name: ansible.posix
