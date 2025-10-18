@@ -1,0 +1,57 @@
+# templates/mongo-express.yml
+# Mongo Express - MongoDB Web UI
+version: "3.8"
+
+services:
+  mongo-express:
+    image: mongo-express:latest
+    secrets:
+      - mongo_express_username
+      - mongo_express_password
+    environment:
+      # Connection directe à MongoDB sur l'hôte avec IP
+      ME_CONFIG_MONGODB_URL: "mongodb://{{ mongodb_admin_user }}:{{ mongodb_admin_password }}@{{ mongodb_host }}:27017/?authSource=admin"
+      ME_CONFIG_BASICAUTH_USERNAME_FILE: /run/secrets/mongo_express_username
+      ME_CONFIG_BASICAUTH_PASSWORD_FILE: /run/secrets/mongo_express_password
+      ME_CONFIG_MONGODB_ENABLE_ADMIN: "true"
+      ME_CONFIG_SITE_BASEURL: /
+    networks:
+      - "{{ traefik_network }}"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - traefik.enable=true
+        - traefik.constraint-label=traefik-public
+        
+        # HTTP Router - Redirect to HTTPS
+        - traefik.http.routers.mongo-express-http.rule=Host(`{{ mongo_express_domain }}`)
+        - traefik.http.routers.mongo-express-http.entrypoints=http
+        - traefik.http.routers.mongo-express-http.middlewares=https-redirect
+        
+        # HTTPS Router
+        - traefik.http.routers.mongo-express-https.rule=Host(`{{ mongo_express_domain }}`)
+        - traefik.http.routers.mongo-express-https.entrypoints=https
+        - traefik.http.routers.mongo-express-https.tls=true
+        - traefik.http.routers.mongo-express-https.tls.certresolver=letsencrypt
+        
+        # Service
+        - traefik.http.services.mongo-express.loadbalancer.server.port=8081
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+networks:
+  "{{ traefik_network }}":
+    external: true
+
+secrets:
+  mongo_express_username:
+    external: true
+  mongo_express_password:
+    external: true
+

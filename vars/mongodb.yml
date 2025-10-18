@@ -1,0 +1,31 @@
+---
+# vars/mongodb.yml
+# Variables pour MongoDB et Mongo Express
+
+# MongoDB Version
+mongodb_version: "8.0"
+
+# MongoDB Admin User
+mongodb_admin_user: admin
+mongodb_admin_password: "{{ vault_mongodb_admin_password }}"  # À définir dans vault
+
+# MongoDB Application User
+mongodb_app_database: qzbible
+mongodb_app_user: qzbible_user
+mongodb_app_password: "{{ vault_mongodb_app_password }}"  # À définir dans vault
+
+# Mongo Express (Web UI)
+mongo_express_domain: mongodb-express.qzbible.com
+mongo_express_basicauth_username: admin
+mongo_express_basicauth_password: "{{ vault_mongo_express_password }}"  # À définir dans vault
+
+# Docker Swarm Secrets Names
+mongodb_admin_password_secret_name: mongodb_admin_password
+mongo_express_basicauth_username_secret_name: mongo_express_username
+mongo_express_basicauth_password_secret_name: mongo_express_password
+
+# MongoDB Host (depuis Docker, c'est l'IP de l'hôte)
+mongodb_host: "{{ ansible_default_ipv4.address }}"
+
+# Folder for internal apps
+internal_apps_folder: /opt/internal-apps
